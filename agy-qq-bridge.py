@@ -400,14 +400,14 @@ async def handle_c2c_message(d: dict):
         
         # 3. 启动 AGY
         proc_start = await asyncio.create_subprocess_exec(
-            "tmux", "send-keys", "-t", TMUX_SESSION, AGY_START_CMD, "Enter"
+            "tmux", "send-keys", "-t", f"{TMUX_SESSION}:", AGY_START_CMD, "Enter"
         )
         await proc_start.communicate()
 
         # 4. 确认信任提示
         await asyncio.sleep(4.0)
         proc_enter = await asyncio.create_subprocess_exec(
-            "tmux", "send-keys", "-t", TMUX_SESSION, "Enter", ""
+            "tmux", "send-keys", "-t", f"{TMUX_SESSION}:", "Enter", ""
         )
         await proc_enter.communicate()
         
@@ -419,7 +419,7 @@ async def handle_c2c_message(d: dict):
         logger.info("[Recv] Stop command received")
         for key in ["C-c", "Enter", "C-c"]:
             proc = await asyncio.create_subprocess_exec(
-                "tmux", "send-keys", "-t", TMUX_SESSION, key, ""
+                "tmux", "send-keys", "-t", f"{TMUX_SESSION}:", key, ""
             )
             await proc.communicate()
             await asyncio.sleep(0.3)
