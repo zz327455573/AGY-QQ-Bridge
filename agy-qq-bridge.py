@@ -116,6 +116,7 @@ def find_latest_transcript(min_mtime: float) -> Optional[Path]:
 
 async def send_to_agy(message: str):
     """发送消息给 tmux 中的 AGY"""
+    logger.info(f"[Tmux Target] Sending keys to session: {TMUX_SESSION}")
     # 模拟按 Escape 强退可能卡在 TUI 或 PAGER 的状态
     proc_esc = await asyncio.create_subprocess_exec(
         "tmux", "send-keys", "-t", TMUX_SESSION, "Escape", ""
