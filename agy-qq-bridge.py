@@ -86,6 +86,8 @@ _http_client = None
 _running = False
 _last_msg_id: Optional[str] = None
 _last_typing_sent_time = 0.0  # 记录上次发送“正在输入”通知的时间戳
+_is_generating = False  # 是否处于等待 AI 响应的生成状态
+_generating_since = 0.0  # 进入生成状态的时间，超时自动 reset
 _bot_openid: str = ""
 heartbeat_task = None
 
@@ -142,7 +144,7 @@ async def send_to_agy(message: str):
 
 async def log_listener():
     """纯异步增量日志广播协程：无脑在后台读取最新修改日志的增量并推送到 QQ。"""
-    global _current_log_path, _last_log_size, _last_sent_timestamp, _last_typing_sent_time
+    global _current_log_path, _last_log_size, _last_sent_timestamp, _last_typing_sent_time, _is_generating
     
     # 启动时，先扫描并绑定目前最新的日志（以当前 24 小时前为基线）
     init_log = find_latest_transcript(time.time() - 86400.0)
@@ -173,6 +175,18 @@ async def log_listener():
     while _running:
         await asyncio.sleep(0.5)
         
+        # 触发/续杯“正在输入中”的顶部状态
+        now = time.time()
+        if _is_generating and _last_msg_id and (now - _last_typing_sent_time > 2.5):
+            asyncio.create_task(send_input_notify(MASTER_OPENID, _last_msg_id))
+            _last_typing_sent_time = now
+
+        # 超时自动重置“正在输入”状态（防止卡死超过 5 分钟）
+        if _is_generating and _generating_since > 0 and (now - _generating_since > 300):
+            logger.warning(f"[Listener] _is_generating timeout ({int(now - _generating_since)}s), auto-reset")
+            _is_generating = False
+            _generating_since = 0.0
+
         # 1. 动态探测是否有新修改的文件诞生（比如重置会话拉起新 UUID 目录）
         try:
             latest_log = find_latest_transcript(time.time() - 86400.0)
@@ -186,14 +200,13 @@ async def log_listener():
         if not _current_log_path:
             continue
 
-        # 2. 检测大小变动
+        # 2. 读取字节（仅单次读取，防止文件增长导致读取水位的竞争问题）
         try:
-            curr_size = _current_log_path.stat().st_size
-        except FileNotFoundError:
-            _current_log_path = None
+            raw = _current_log_path.read_bytes()
+        except OSError:
             continue
 
-        # 针对日志文件被 AI 客户端自动截断/收缩导致的 log rotation 现象进行安全水位重置
+        curr_size = len(raw)
         if curr_size < _last_log_size:
             logger.info(f"[Listener] Log file truncated (decreased from {_last_log_size} to {curr_size}), resetting offset.")
             _last_log_size = 0
@@ -201,11 +214,8 @@ async def log_listener():
         if curr_size <= _last_log_size:
             continue
 
-        # 触发/续杯“正在输入中”的顶部状态
-        now = time.time()
-        if _last_msg_id and (now - _last_typing_sent_time > 5.0):
-            asyncio.create_task(send_input_notify(MASTER_OPENID, _last_msg_id))
-            _last_typing_sent_time = now
+        # 已经移至循环开头，这里不再需要
+        pass
 
         # 3. 增量读取新行
         try:
@@ -248,6 +258,8 @@ async def log_listener():
                     logger.info(f"[Listener -> QQ] Broadcasting response (ts={ts}): {text[:100]}")
                     if ts:
                         _last_sent_timestamp = ts
+                    _is_generating = False  # 真正输出文本给用户时，再关闭输入状态
+                    _generating_since = 0.0
                     await send_message_rest(MASTER_OPENID, text)
 
 
@@ -402,7 +414,7 @@ def is_duplicate(msg_id: str) -> bool:
 
 
 async def handle_c2c_message(d: dict):
-    global _last_msg_id, _bot_openid
+    global _last_msg_id, _bot_openid, _is_generating
 
     msg_id = str(d.get("id", ""))
     if not msg_id or is_duplicate(msg_id):
@@ -426,14 +438,18 @@ async def handle_c2c_message(d: dict):
         return
 
     _last_msg_id = msg_id
+    _is_generating = True
+    _generating_since = time.time()
     logger.info(f"[Recv] openid={user_openid}: {content[:100]}")
 
     if user_openid != MASTER_OPENID:
         logger.info(f"[Skip] non-master openid: {user_openid}")
+        _is_generating = False
         return
 
     # 命令处理
     if content.strip().lower() in ["/new", "/reset", "/清空", "/新对话"]:
+        _is_generating = False
         logger.info("[Recv] New session command received")
         
         # 1. 强杀 tmux s0
@@ -464,6 +480,7 @@ async def handle_c2c_message(d: dict):
         return
 
     if content.strip().lower() in ["/stop", "/停止", "/kill"]:
+        _is_generating = False
         logger.info("[Recv] Stop command received")
         for key in ["C-c", "Enter", "C-c"]:
             proc = await asyncio.create_subprocess_exec(
