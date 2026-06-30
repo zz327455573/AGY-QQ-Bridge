@@ -10,3 +10,8 @@ agy-sessions/
 **/.pm2/
 *.pyc
 **/__pycache__/
+
+# pip build artifacts
+*.egg-info/
+dist/
+build/
