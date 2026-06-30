@@ -593,12 +593,27 @@ def run_init():
     if not tmux_session:
         tmux_session = "0"
 
+    print()
+    print("-" * 40)
+    print("AGY 启动命令配置（可选）")
+    print("-" * 40)
+    print()
+    print(f"默认值: cd ~ && agy --dangerously-skip-permissions")
+    print("提示：如果你的 agy 不在 PATH 里，或需要 script -q -c 包装，请自定义。")
+    print("      （大多数用户直接回车即可）")
+    print()
+    agy_start_cmd = input("回车使用默认: ").strip()
+    if agy_start_cmd:
+        agy_start_cmd_line = f"\nAGY_START_CMD={agy_start_cmd}"
+    else:
+        agy_start_cmd_line = ""
+
     env_path = Path(".env")
     content = f"""# AGY-QQ-Bridge 配置 — 由 `agy-qq-bridge --init` 自动生成
 # MASTER_OPENID 将在首次收到消息时自动绑定
 APP_ID={app_id}
 CLIENT_SECRET={client_secret}
-TMUX_SESSION={tmux_session}
+TMUX_SESSION={tmux_session}{agy_start_cmd_line}
 """
     env_path.write_text(content, encoding="utf-8")
     print()
