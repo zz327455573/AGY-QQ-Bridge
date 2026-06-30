@@ -28,27 +28,37 @@ graph TD
 
 ## 🛠️ 安装与运行
 
-### 1. 准备环境
+### 1. 
 
-项目运行依赖 Python 3 和本地安装的 `tmux` 虚拟终端：
+ Python 3  `tmux`
+
 ```bash
-# 安装 Python 异步网络库
-pip install aiohttp httpx
+#  pip 
+pip install git+https://github.com/zz327455573/AGY-QQ-Bridge.git
+
+#  --init  bin
+which agy-qq-bridge
 ```
 
-### 2. 配置文件说明
+### 2.  
 
-将项目根目录下的 `.env.example` 复制为 `.env`，并填入相应的参数：
 ```bash
+#  pip  --init 
+agy-qq-bridge --init
+
+#  .env  .env 
 cp .env.example .env
 ```
 
-配置项解释：
-*   `APP_ID` / `CLIENT_SECRET`：QQ 开放平台申请到的官方机器人应用密钥。
-*   `MASTER_OPENID`：您的个人 QQ C2C OpenID，桥接器仅会对该管理员的消息进行安全响应。
-*   `TMUX_SESSION`：用于保活 AGY 运行的 tmux 会话名，默认值为 `0`。
-*   `BRAIN_DIR`：AGY 的 `brain/` 日志目录，默认会自动定位到 `~/.gemini/antigravity-cli/brain`。
-*   `AGY_START_CMD`：重置会话时，用于在终端重新拉起 AGY 的启动指令，默认提供 `--dangerously-skip-permissions` 以进行免人工干预的自动化部署。
+ .env 
+
+*   `APP_ID` / `CLIENT_SECRET`QQ 
+*   `MASTER_OPENID` QQ C2C OpenID `--init` 
+*   `TMUX_SESSION` AGY  tmux  `0`
+*   `AGY_START_CMD` AGY  AGY  tmux 
+    *  `cd ~ && agy --dangerously-skip-permissions`
+    *  `script -q -c "/root/.local/bin/agy --dangerously-skip-permissions" /dev/null`  agy  PATH script 
+*   `BRAIN_DIR`AGY  `brain/`  `~/.gemini/antigravity-cli/brain`
 
 ### 3. 使用 PM2 进行守护与热启动
 
@@ -77,6 +87,11 @@ pm2 logs agy-qq-bridge
 ---
 
 ## 📝 更新日志
+
+### v2.1 (2026-07-01)
+*   `--init` AGY_START_CMD  AGY  AGY 
+*   `.env.example`  `AGY_START_CMD` 
+*   README  
 
 ### v2.0 (2026-06-29)
 *   **多模态支持**：实现了附件功能的零阻拦直传。机器人接收到图片、语音（SILK格式）、视频以及任意文件后，不再进行本地缓存，而是将 QQ 临时下载 URL 自动原样透传给大模型进行原生多模态识别与解析。
